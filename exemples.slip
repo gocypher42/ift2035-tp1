@@ -1,0 +1,44 @@
+;;; Quelques exemples.                                  -*- coding: utf-8 -*-
+
+;;; D'abord quelques exemples sans sucre syntaxique ni récursion.
+
+2                                       ; ↝ 2
++                                       ; ↝ <function>
+(4 (2 +))                               ; ↝ 6
+
+(2 (lambda (x) x))                      ; ↝ 2
+
+(5
+ (3
+  (lambda (x) (lambda (y) (* x y)))))   ; ↝ 15
+
+(cons nil)                              ; ↝ [nil]
+(cons cons 1 2)                         ; ↝ [cons 1 2]
+
+(case (cons cons 1 2) ((nil) 1) ((cons x y) (y (x +)))) ; ↝ 3
+(case (cons cons 1 2) (_ 1)     ((cons x y) (y (x +)))) ; ↝ 1
+
+(if (> 3 4) 5 6)                        ; ↝ 6
+
+(slet ((x 1)) x)                        ; ↝ 1
+(dlet (((f x y) (y ((1 (x +)) *)))) (6 (5 f))) ; ↝ 36
+
+(slet (((curried+ x) (lambda (y) (y (x +))))
+       (x 7))
+  (6 (5 curried+)))                     ; ↝ 11
+
+(dlet (((curried+ x1) (dlet ((x x1)) (lambda (y) (y (x +)))))
+       (x 7))
+  (6 (5 curried+)))                     ; ↝ 13
+
+(dlet (((fact n)
+        (if (1 (n <=)) n (((1 (n -)) fact) (n *)))))
+  (5 fact))                             ; ↝ 120
+
+(slet (((Y f)
+        (lambda (n)
+          (slet ((f1 (lambda (x n) (n ((lambda (n) (n (x x))) f)))))
+            (n (f1 f1)))))
+       ((fact fact1 n)
+          (if (1 (n <=)) n (((1 (n -)) fact1) (n *)))))
+  (5 (fact Y)))                         ; ↝ 120
