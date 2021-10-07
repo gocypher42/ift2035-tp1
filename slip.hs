@@ -225,7 +225,11 @@ data Lexp
 s2l :: Sexp -> Lexp
 s2l (Snum n) = Lnum n
 s2l (Ssym s) = Lvar s
-s2l (Scons left Snil) = s2l left
+s2l (Scons left Snil) = s2l left -- handle fin de l'arbre
+-- handle un Scons, mais seulement avec un num pour le left
+-- et un Scons pour le right. Un sNum avec autre chose  est invalide
+-- pour l'instant. a voir...
+s2l (Scons left@(Snum _) right@(Scons _ _)) = Lpipe (s2l right) (s2l left)
 -- ¡¡ COMPLETER !!
 s2l se = error ("Malformed Sexp: " ++ (showSexp se))
 
@@ -303,7 +307,8 @@ env0 =
 
 eval :: Env -> Env -> Lexp -> Value
 eval _senv _denv (Lnum n) = Vnum n
-eval [] [] (Lvar _) = error "no env given"
+-- eval [] [] (Lvar _) = error "no env given"
+-- TODO Should be redone
 eval [] ((var, val) : xdenvs) (Lvar s) =
   if var == s
     then val
@@ -312,6 +317,12 @@ eval ((var, val) : xsenvs) _denv (Lvar s) =
   if var == s
     then val
     else eval xsenvs _denv (Lvar s)
+-- TODO end
+eval _senv _denv (Lpipe left right) =
+  case eval _senv _denv left of
+    Vfn fn -> fn _senv (eval _senv _denv right)
+    Vnum _ -> error "Problème d'évaluation."
+    Vcons _ _ -> error "Problème d'évaluation."
 -- ¡¡ COMPLETER !!
 eval _ _ e = error ("Can't eval: " ++ show e)
 
