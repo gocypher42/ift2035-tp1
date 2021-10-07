@@ -318,11 +318,13 @@ eval ((var, val) : xsenvs) _denv (Lvar s) =
     then val
     else eval xsenvs _denv (Lvar s)
 -- TODO end
+-- Évaluation pour les Lpipe
+-- Line 4 (4 (2 +)) -> Lpipe (Lpipe (Lvar "+") (Lnum 2)) (Lnum 4) -> 6
 eval _senv _denv (Lpipe left right) =
   case eval _senv _denv left of
     Vfn fn -> fn _senv (eval _senv _denv right)
-    Vnum _ -> error "Problème d'évaluation."
-    Vcons _ _ -> error "Problème d'évaluation."
+    Vnum _ -> error "Évaluation non implémenté"
+    Vcons _ _ -> error "Évaluation non implémenté"
 -- ¡¡ COMPLETER !!
 eval _ _ e = error ("Can't eval: " ++ show e)
 
