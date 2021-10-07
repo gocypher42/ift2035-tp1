@@ -225,6 +225,7 @@ data Lexp
 s2l :: Sexp -> Lexp
 s2l (Snum n) = Lnum n
 s2l (Ssym s) = Lvar s
+s2l (Scons left Snil) = s2l left
 -- ¡¡ COMPLETER !!
 s2l se = error ("Malformed Sexp: " ++ (showSexp se))
 
@@ -302,6 +303,15 @@ env0 =
 
 eval :: Env -> Env -> Lexp -> Value
 eval _senv _denv (Lnum n) = Vnum n
+eval [] [] (Lvar _) = error "no env given"
+eval [] ((var, val) : xdenvs) (Lvar s) =
+  if var == s
+    then val
+    else eval [] xdenvs (Lvar s)
+eval ((var, val) : xsenvs) _denv (Lvar s) =
+  if var == s
+    then val
+    else eval xsenvs _denv (Lvar s)
 -- ¡¡ COMPLETER !!
 eval _ _ e = error ("Can't eval: " ++ show e)
 
