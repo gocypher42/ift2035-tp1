@@ -307,17 +307,11 @@ env0 =
 
 eval :: Env -> Env -> Lexp -> Value
 eval _senv _denv (Lnum n) = Vnum n
--- eval [] [] (Lvar _) = error "no env given"
--- TODO Should be redone
-eval [] ((var, val) : xdenvs) (Lvar s) =
-  if var == s
-    then val
-    else eval [] xdenvs (Lvar s)
-eval ((var, val) : xsenvs) _denv (Lvar s) =
-  if var == s
-    then val
-    else eval xsenvs _denv (Lvar s)
--- TODO end
+-- Made getting var simpler for now.
+-- We will need to extends when we will deal with dynamic variables
+eval [] [] (Lvar _) = error "Var not found in senv and denv"
+eval ((var, val) : _) _ (Lvar s) | var == s = val
+eval (_ : _senvs) _denv s@(Lvar _) = eval _senvs _denv s
 -- Évaluation pour les Lpipe
 -- Line 4 (4 (2 +)) -> Lpipe (Lpipe (Lvar "+") (Lnum 2)) (Lnum 4) -> 6
 eval _senv _denv (Lpipe left right) =
