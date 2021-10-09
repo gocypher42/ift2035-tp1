@@ -1,1 +1,5 @@
-+ 
+2                                       ; ↝ 2
++                                       ; ↝ <function>
+(4 (2 +))                               ; ↝ 6
+
+(2 (lambda (x) x))                      ; ↝ 2 Lpipe (Lfn "x" (Lvar "x")) (Lnum 2)

@@ -229,7 +229,18 @@ s2l (Scons left Snil) = s2l left -- handle fin de l'arbre
 -- handle un Scons, mais seulement avec un num pour le left
 -- et un Scons pour le right. Un sNum avec autre chose  est invalide
 -- pour l'instant. a voir...
-s2l (Scons left@(Snum _) right@(Scons _ _)) = Lpipe (s2l right) (s2l left)
+s2l (Scons (Ssym "lambda") (Scons var function)) =
+  let Lvar v = s2l var
+   in Lfn v (s2l function)
+s2l (Scons left right) =
+  case s2l left of
+    num@(Lnum _) -> Lpipe (s2l right) num
+    var@(Lvar _) -> Lpipe (s2l right) var
+    Lfn _ _ -> error "not implemented"
+    Lpipe _ _ -> error "not implemented"
+    Lcons _ _ -> error "not implemented"
+    Lcase _ _ -> error "not implemented"
+    Llet _ _ _ _ -> error "not implemented"
 -- ¡¡ COMPLETER !!
 s2l se = error ("Malformed Sexp: " ++ (showSexp se))
 
@@ -309,16 +320,24 @@ eval :: Env -> Env -> Lexp -> Value
 eval _senv _denv (Lnum n) = Vnum n
 -- Made getting var simpler for now.
 -- We will need to extends when we will deal with dynamic variables
-eval [] [] (Lvar _) = error "Var not found in senv and denv"
+eval [] [] e@(Lvar _) = error ("Var not found in senv and denv " ++ show e)
 eval ((var, val) : _) _ (Lvar s) | var == s = val
 eval (_ : _senvs) _denv s@(Lvar _) = eval _senvs _denv s
--- Évaluation pour les Lpipe
--- Line 4 (4 (2 +)) -> Lpipe (Lpipe (Lvar "+") (Lnum 2)) (Lnum 4) -> 6
-eval _senv _denv (Lpipe left right) =
-  case eval _senv _denv left of
-    Vfn fn -> fn _senv (eval _senv _denv right)
-    Vnum _ -> error "Évaluation non implémenté"
-    Vcons _ _ -> error "Évaluation non implémenté"
+eval _senv _denv se@(Lpipe func arg) =
+  case func of
+    Lnum _ -> error ("not implemented " ++ show se)
+    var@(Lvar _) -> case eval _senv _denv var of
+      Vfn func' -> func' _senv (eval _senv _denv arg)
+      Vnum _ -> error ("not implemented " ++ show se)
+      Vcons _ _ -> error ("not implemented " ++ show se)
+    Lfn var body -> eval ((var, eval _senv _denv arg) : _senv) _denv body
+    pipe@(Lpipe _ _) ->
+      let Vfn func' = eval _senv _denv pipe
+          arg' = eval _senv _denv arg
+       in func' _senv arg'
+    Lcons _ _ -> error ("not implemented " ++ show se)
+    Lcase _ _ -> error ("not implemented " ++ show se)
+    Llet _ _ _ _ -> error ("not implemented " ++ show se)
 -- ¡¡ COMPLETER !!
 eval _ _ e = error ("Can't eval: " ++ show e)
 

@@ -6,11 +6,11 @@
 +                                       ; ↝ <function>
 (4 (2 +))                               ; ↝ 6
 
-(2 (lambda (x) x))                      ; ↝ 2
+(2 (lambda (x) x))                      ; ↝ 2 Lpipe (Lfn "x" (Lvar "x")) (Lnum 2)
 
 (5
  (3
-  (lambda (x) (lambda (y) (* x y)))))   ; ↝ 15
+  (lambda (x) (lambda (y) (* x y)))))   ; ↝ 15 Lpipe (Lpipe (Lfn "x" ) (Lnum 3)) (Lnum 5)
 
 (cons nil)                              ; ↝ [nil]
 (cons cons 1 2)                         ; ↝ [cons 1 2]
@@ -42,3 +42,4 @@
        ((fact fact1 n)
           (if (1 (n <=)) n (((1 (n -)) fact1) (n *)))))
   (5 (fact Y)))                         ; ↝ 120
+  
