@@ -1,5 +1,8 @@
+
 2                                       ; ↝ 2
 +                                       ; ↝ <function>
 (4 (2 +))                               ; ↝ 6
 
-(2 (lambda (x) x))                      ; ↝ 2 Lpipe (Lfn "x" (Lvar "x")) (Lnum 2)
+
+(cons nil)                              ; ↝ [nil]
+(cons cons 1 2)                         ; ↝ [cons 1 2]

@@ -232,17 +232,17 @@ s2l (Scons left Snil) = s2l left -- handle fin de l'arbre
 s2l (Scons (Ssym "lambda") (Scons var function)) =
   let Lvar v = s2l var
    in Lfn v (s2l function)
-s2l (Scons left right) =
-  case s2l left of
-    num@(Lnum _) -> Lpipe (s2l right) num
-    var@(Lvar _) -> Lpipe (s2l right) var
-    Lfn _ _ -> error "not implemented"
-    Lpipe _ _ -> error "not implemented"
-    Lcons _ _ -> error "not implemented"
-    Lcase _ _ -> error "not implemented"
-    Llet _ _ _ _ -> error "not implemented"
+s2l (Scons (Ssym "cons") (Scons (Ssym tag) content)) = 
+  let args = buildLLcons content in Lcons tag args
+
+s2l (Scons left right) = Lpipe (s2l left) (s2l right)
 -- ¡¡ COMPLETER !!
 s2l se = error ("Malformed Sexp: " ++ (showSexp se))
+
+buildLLcons :: Sexp -> [Lexp]
+buildLLcons Snil = []
+buildLLcons (Scons left right) = (s2l left) : buildLLcons right
+buildLLcons _ = error "not implemented"
 
 ---------------------------------------------------------------------------
 -- Représentation du contexte d'exécution                                --
@@ -323,23 +323,18 @@ eval _senv _denv (Lnum n) = Vnum n
 eval [] [] e@(Lvar _) = error ("Var not found in senv and denv " ++ show e)
 eval ((var, val) : _) _ (Lvar s) | var == s = val
 eval (_ : _senvs) _denv s@(Lvar _) = eval _senvs _denv s
-eval _senv _denv se@(Lpipe func arg) =
-  case func of
-    Lnum _ -> error ("not implemented " ++ show se)
-    var@(Lvar _) -> case eval _senv _denv var of
-      Vfn func' -> func' _senv (eval _senv _denv arg)
-      Vnum _ -> error ("not implemented " ++ show se)
-      Vcons _ _ -> error ("not implemented " ++ show se)
-    Lfn var body -> eval ((var, eval _senv _denv arg) : _senv) _denv body
-    pipe@(Lpipe _ _) ->
-      let Vfn func' = eval _senv _denv pipe
-          arg' = eval _senv _denv arg
-       in func' _senv arg'
-    Lcons _ _ -> error ("not implemented " ++ show se)
-    Lcase _ _ -> error ("not implemented " ++ show se)
-    Llet _ _ _ _ -> error ("not implemented " ++ show se)
+eval _senv _denv (Lcons tag content) = Vcons tag (evalLconsList _senv _denv content)
+
+eval _senv _denv (Lpipe left right) =
+  let Vfn fn = eval _senv _denv right
+      arg = eval _senv _denv left
+    in fn _denv arg 
 -- ¡¡ COMPLETER !!
 eval _ _ e = error ("Can't eval: " ++ show e)
+
+evalLconsList :: Env -> Env -> [Lexp] -> [Value] 
+evalLconsList _ _ [] = []
+evalLconsList _senv _denv (x:xs) = eval _senv _denv x : evalLconsList _senv _denv xs
 
 ---------------------------------------------------------------------------
 -- Toplevel                                                              --
