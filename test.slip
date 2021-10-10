@@ -1,4 +1,3 @@
-
 2                                       ; ↝ 2
 +                                       ; ↝ <function>
 (4 (2 +))                               ; ↝ 6
@@ -6,3 +5,29 @@
 
 (cons nil)                              ; ↝ [nil]
 (cons cons 1 2)                         ; ↝ [cons 1 2]
+(case (cons cons 1 2) ((nil) 1) ((cons x y) (y (x +))))
+
+;Scons (Ssym "case") 
+;       (Scons (Scons (Ssym "cons")
+;                     (Scons (Ssym "cons") 
+;                            (Scons (Snum 1) 
+;                                   (Scons (Snum 2) Snil))))
+;              (Scons (Scons (Scons (Ssym "nil") Snil)
+;                            (Scons (Snum 1) Snil)) 
+;                     (Scons (Scons (Scons (Ssym "cons") 
+;                                          (Scons (Ssym "x") 
+;                                                 (Scons (Ssym "y") Snil))) 
+;                                   (Scons (Scons (Ssym "y") 
+;                                                 (Scons (Scons (Ssym "x") 
+;                                                        (Scons (Ssym "+") Snil))
+;                                                  Snil)) 
+;                                            Snil)) 
+;                            Snil)))
+;
+;;Scons (Ssym "/")
+;--       (Scons (Scons (Ssym "*")
+;--                     (Scons (Scons (Ssym "-")
+;--                                   (Scons (Snum 68)
+;--                                          (Scons (Snum 32) Snil)))
+;--                            (Scons (Snum 5) Snil)))
+;--              (Scons (Snum 9) Snil))

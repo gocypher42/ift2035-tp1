@@ -232,18 +232,49 @@ s2l (Scons left Snil) = s2l left -- handle fin de l'arbre
 s2l (Scons (Ssym "lambda") (Scons var function)) =
   let Lvar v = s2l var
    in Lfn v (s2l function)
-s2l (Scons (Ssym "cons") (Scons (Ssym tag) content)) = 
-  let args = buildLLcons content in Lcons tag args
-
+s2l (Scons (Ssym "cons") right) = mkLcons right
+s2l (Scons (Ssym "case") right) = mkLcase right
 s2l (Scons left right) = Lpipe (s2l left) (s2l right)
 -- ¡¡ COMPLETER !!
-s2l se = error ("Malformed Sexp: " ++ (showSexp se))
+s2l se = error ("Malformed Sexp: " ++ (show se))
+-- s2l se = error ("Malformed Sexp: " ++ (showSexp se))
 
-buildLLcons :: Sexp -> [Lexp]
-buildLLcons Snil = []
-buildLLcons (Scons left right) = (s2l left) : buildLLcons right
-buildLLcons _ = error "not implemented"
+mkLcons :: Sexp -> Lexp
+mkLcons(Scons (Ssym tag) content) = Lcons tag (mkLconsExpo content)
+mkLcons _ = error "not implemented"
 
+mkLconsExpo :: Sexp -> [Lexp]
+mkLconsExpo Snil = []
+mkLconsExpo (Scons left right) = (s2l left) : mkLconsExpo right
+mkLconsExpo _ = error "not implemented"
+
+makePatern :: Sexp ->[(Pat, Lexp)]
+makePatern _ = error "not implemented"
+
+mkLcase :: Sexp -> Lexp
+mkLcase (Scons (Scons (Ssym "cons") cons) right) = Lcase (mkLcons cons) (mkBranches right)
+mkLcase _ = error "not implemented"
+
+mkBranches :: Sexp -> [(Pat, Lexp)]
+mkBranches (Scons left right) = (mkPatern left) : mkBranches right
+mkBranches _ = error "not implemented"
+
+mkPatern :: Sexp -> (Pat, Lexp)
+mkPatern (Scons left right) = (getTag left, s2l right)
+mkPatern _ = error "not implemented"
+
+getTag :: Sexp -> Pat
+getTag (Scons (Ssym tag) right) = Just (tag, getVar right)
+getTag _ = error "not implemented"
+
+getVar :: Sexp -> [Var]
+getVar Snil = []
+getVar (Scons (Ssym var) right) = var : getVar right
+getVar _ = error "not implemented"
+
+-- getVar :: [Lexp] -> [Var]
+-- getVar [] = []
+-- getVar (x:xs) = let Lvar var = x in var :
 ---------------------------------------------------------------------------
 -- Représentation du contexte d'exécution                                --
 ---------------------------------------------------------------------------
