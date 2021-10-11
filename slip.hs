@@ -233,7 +233,7 @@ s2l (Scons (Ssym "lambda") (Scons var function)) =
   let Lvar v = s2l var
    in Lfn v (s2l function)
 s2l (Scons (Ssym "cons") right) = mkLcons right
-s2l (Scons (Ssym "case") right) = mkLcase right
+s2l (Scons (Ssym "case") (Scons left right)) = Lcase (s2l left) (mkBranches right)
 s2l (Scons left right) = Lpipe (s2l left) (s2l right)
 -- ¡¡ COMPLETER !!
 s2l se = error ("Malformed Sexp: " ++ (show se))
@@ -248,14 +248,8 @@ mkLconsExpo Snil = []
 mkLconsExpo (Scons left right) = (s2l left) : mkLconsExpo right
 mkLconsExpo _ = error "not implemented"
 
-makePatern :: Sexp ->[(Pat, Lexp)]
-makePatern _ = error "not implemented"
-
-mkLcase :: Sexp -> Lexp
-mkLcase (Scons (Scons (Ssym "cons") cons) right) = Lcase (mkLcons cons) (mkBranches right)
-mkLcase _ = error "not implemented"
-
 mkBranches :: Sexp -> [(Pat, Lexp)]
+mkBranches (Scons (Scons (Ssym "_") right) _) = [(Nothing,s2l right)]
 mkBranches (Scons left right) = (mkPatern left) : mkBranches right
 mkBranches _ = error "not implemented"
 
@@ -272,9 +266,6 @@ getVar Snil = []
 getVar (Scons (Ssym var) right) = var : getVar right
 getVar _ = error "not implemented"
 
--- getVar :: [Lexp] -> [Var]
--- getVar [] = []
--- getVar (x:xs) = let Lvar var = x in var :
 ---------------------------------------------------------------------------
 -- Représentation du contexte d'exécution                                --
 ---------------------------------------------------------------------------
@@ -355,6 +346,11 @@ eval [] [] e@(Lvar _) = error ("Var not found in senv and denv " ++ show e)
 eval ((var, val) : _) _ (Lvar s) | var == s = val
 eval (_ : _senvs) _denv s@(Lvar _) = eval _senvs _denv s
 eval _senv _denv (Lcons tag content) = Vcons tag (evalLconsList _senv _denv content)
+eval _senv _denv (Lcase cons patterns) =
+  let Vcons tag content = eval _senv _denv cons 
+      (vars, lexp) = getMatchingPattern tag patterns
+      senv' = generateEnv vars content ++ _senv
+    in eval senv' _denv lexp
 
 eval _senv _denv (Lpipe left right) =
   let Vfn fn = eval _senv _denv right
@@ -366,6 +362,18 @@ eval _ _ e = error ("Can't eval: " ++ show e)
 evalLconsList :: Env -> Env -> [Lexp] -> [Value] 
 evalLconsList _ _ [] = []
 evalLconsList _senv _denv (x:xs) = eval _senv _denv x : evalLconsList _senv _denv xs
+
+getMatchingPattern :: Var -> [(Pat, Lexp)] -> ([Var], Lexp)
+getMatchingPattern _ [] = error "Empty pattern"
+getMatchingPattern _ ((Nothing,lexp): _xs) = ([], lexp)
+getMatchingPattern tag ((Just (tag', vars), lexp): _xs) = 
+  if tag == tag' then (vars, lexp) else getMatchingPattern tag _xs
+
+generateEnv ::  [Var] -> [Value]-> [(Var, Value)]
+generateEnv [] _ = []
+generateEnv (x:xs) (y:ys) = (x,y) : generateEnv xs ys
+generateEnv _ _ = error "not implemented"
+
 
 ---------------------------------------------------------------------------
 -- Toplevel                                                              --
