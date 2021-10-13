@@ -225,20 +225,44 @@ data Lexp
 s2l :: Sexp -> Lexp
 s2l (Snum n) = Lnum n
 s2l (Ssym s) = Lvar s
-s2l (Scons left Snil) = s2l left -- handle fin de l'arbre
--- handle un Scons, mais seulement avec un num pour le left
--- et un Scons pour le right. Un sNum avec autre chose  est invalide
--- pour l'instant. a voir...
+s2l (Scons left Snil) = s2l left
 s2l (Scons (Ssym "lambda") (Scons var function)) =
   let Lvar v = s2l var
    in Lfn v (s2l function)
 s2l (Scons (Ssym "cons") right) = mkLcons right
-s2l (Scons (Ssym "case") (Scons left right)) = Lcase (s2l left) (mkBranches right)
-s2l (Scons left right) = Lpipe (s2l left) (s2l right)
+s2l (Scons (Ssym "case") (Scons left right)) =
+  Lcase (s2l left) (mkBranches right)
+s2l (Scons (Ssym "if") (Scons condition (Scons ifTrue (Scons ifFalse Snil)))) =
+  let trueLexp = (Just ("true", []), s2l ifTrue)
+      falseLexp = (Just ("false", []), s2l ifFalse)
+   in Lcase (s2l condition) [trueLexp, falseLexp]
+s2l (Scons (Ssym "slet") (Scons (Scons (Scons (Ssym var) value) _) body)) =
+  Llet Lexical var (s2l value) (s2l body)
+s2l (Scons (Ssym "dlet") (Scons (Scons varDefinition _) toEval)) =
+  let body = s2l toEval
+      (var, undVars, value) = getVarContent varDefinition
+      value' = generateValue undVars value
+   in Llet Dynamic var value' body
+-- s2l (Scons left right) = Lpipe (s2l left) (s2l right)
 -- ¡¡ COMPLETER !!
 s2l se = error ("Malformed Sexp: " ++ (show se))
 
 -- s2l se = error ("Malformed Sexp: " ++ (showSexp se))
+
+getVarContent :: Sexp -> (Var, [Var], Lexp, Env)
+getVarContent (Scons (Scons (Ssym var) undVars) value) =
+  (var, getUndVars undVars, s2l value)
+getVarContent (Scons _ right) = getVarContent right
+getVarContent _ = error "not implemented"
+
+generateValue :: [Var] -> Lexp -> Lexp
+generateValue [] lexp = lexp
+generateValue (x : xs) lexp = Lfn x (generateValue xs lexp)
+
+getUndVars :: Sexp -> [Var]
+getUndVars Snil = []
+getUndVars (Scons (Ssym var) right) = var : getUndVars right
+getUndVars _ = error "not implemented"
 
 mkLcons :: Sexp -> Lexp
 mkLcons (Scons (Ssym tag) content) = Lcons tag (mkLconsExpo content)
@@ -352,12 +376,65 @@ eval _senv _denv (Lcase cons patterns) =
       (vars, lexp) = getMatchingPattern tag patterns
       senv' = generateEnv vars content ++ _senv
    in eval senv' _denv lexp
-eval _senv _denv (Lpipe left right) =
-  let Vfn fn = eval _senv _denv right
-      arg = eval _senv _denv left
-   in fn _denv arg
+-- eval _senv _denv (Llet Lexical var value lexp) =
+--   eval ((var, eval _senv _denv value) : _senv) _denv lexp
+-- eval _senv _denv (Llet Dynamic var value lexp) =
+--   let lexp' = genDynamicLexp var lexp value
+--    in eval _senv _denv lexp'
+-- eval _senv _denv pipe@(Lpipe left right) =
+--   if isLambda pipe
+--     then
+--       let (vars, values, body) = evalLambda pipe
+--           vars' = reverse vars
+--        in eval (generateEnv vars' values ++ _senv) _denv body
+--     else
+--       let Vfn fn = eval _senv _denv right
+--           arg = eval _senv _denv left
+--        in fn _denv arg
 -- ¡¡ COMPLETER !!
 eval _ _ e = error ("Can't eval: " ++ show e)
+
+genDynamicLexp :: Var -> Lexp -> Lexp -> Lexp
+genDynamicLexp var (Lvar v) replace | var == v = replace
+genDynamicLexp var (Lpipe left right) replace =
+  Lpipe left (genDynamicLexp var right replace)
+genDynamicLexp _ _ _ = error "not implemented"
+
+evalLambda :: Lexp -> ([Var], [Value], Lexp)
+evalLambda pipe@(Lpipe _ _) =
+  let lambda = findStartLambda pipe
+      vars = getLambdaVar lambda
+      values = getLambdaVal pipe
+      body = getLambdaBody lambda
+   in (vars, values, body)
+evalLambda _ = error "not implemented"
+
+findStartLambda :: Lexp -> Lexp
+findStartLambda start@(Lfn _ _) = start
+findStartLambda (Lpipe _ right) = findStartLambda right
+findStartLambda _ = error "not implemented"
+
+getLambdaVar :: Lexp -> [Var]
+getLambdaVar (Lpipe _ _) = []
+getLambdaVar (Lvar var) = [var]
+getLambdaVar (Lfn var lexp) = var : getLambdaVar lexp
+getLambdaVar _ = error "not implemented"
+
+getLambdaVal :: Lexp -> [Value]
+getLambdaVal (Lfn _ _) = []
+getLambdaVal (Lpipe left right) =
+  eval [] [] left : getLambdaVal right
+getLambdaVal _ = error "not implemented"
+
+getLambdaBody :: Lexp -> Lexp
+getLambdaBody (Lfn _ lexp) = getLambdaBody lexp
+getLambdaBody body = body
+
+isLambda :: Lexp -> Bool
+isLambda (Lfn _ _) = True
+isLambda (Lvar _) = False
+isLambda (Lpipe _ left) = isLambda left
+isLambda e = error ("not implemented " ++ show e)
 
 evalLconsList :: Env -> Env -> [Lexp] -> [Value]
 evalLconsList _ _ [] = []
