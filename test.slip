@@ -1,13 +1,25 @@
-2                                                            ; ↝ 2
-+                                                            ; ↝ <function>
-(4 (2 +))                                                    ; ↝ 6
+(slet (((curried+ x) (lambda (y) (y (x +))))
+       (x 7))
+  (6 (5 curried+))) 
 
+;Scons (Ssym "slet") (Scons (Scons (Scons (Scons (Ssym "curried+") 
+                                                 (Scons (Ssym "x") Snil)) 
+                                          (Scons (Scons (Ssym "lambda") 
+                                                        (Scons (Scons (Ssym "y") Snil) 
+                                                 (Scons (Scons (Ssym "y") 
+                                                               (Scons (Scons (Ssym "x") 
+                                                                             (Scons (Ssym "+") Snil)) 
+                                                                       Snil)) 
+                                                         Snil))) 
+                                                  Snil)) 
+                                   (Scons (Scons (Ssym "x") 
+                                                 (Scons (Snum 7) Snil)) 
+                                           Snil)) 
 
-(cons nil)                                                   ; ↝ [nil]
-(cons cons 1 2)                                              ; ↝ [cons 1 2]
+                            (Scons (Scons (Snum 6) 
+                                          (Scons (Scons (Snum 5) 
+                                                        (Scons (Ssym "curried+") Snil)) 
+                                                  Snil)) 
+                                    Snil))
 
-(case (cons cons 1 2) ((nil) 1) ((cons x y) (y (x +))))      ; ↝ 3 
-(case (cons cons 1 2) (_ 1)     ((cons x y) (y (x +))))      ; ↝ 1
-
-
-
+;Lpipe (Lvar "slet") (Lpipe (Lpipe (Lpipe (Lpipe (Lvar "curried+") (Lvar "x")) (Lfn "y" (Lpipe (Lvar "y") (Lpipe (Lvar "x") (Lvar "+"))))) (Lpipe (Lvar "x") (Lnum 7))) (Lpipe (Lnum 6) (Lpipe (Lnum 5) (Lvar "curried+"))))
