@@ -1,13 +1,16 @@
-;(slet ((x 1)) x) 
-;(slet ((x 1) (y 2) (z 3)) (z ((y (x +)) *)))
+(dlet (((f x y) (y ((1 (x +)) *)))) (6 (5 f))) 
+;Llet Dynamic "f" 
+;     (Lfn "x" 
+;          (Lfn "y" (Lpipe (Lvar "y") 
+;                          (Lpipe (Lpipe (Lnum 1) 
+;                                        (Lpipe (Lvar "x") 
+;                                               (Lvar "+"))) (Lvar "*"))))) 
+;     (Lpipe (Lnum 6) (Lpipe (Lnum 5) (Lvar "f")))
 
-;(dlet (((f x y) (y ((1 (x +)) *)))) (6 (5 f))) ; ↝ 36
+;(dlet (((curried+ x1) (dlet ((x x1)) (lambda (y) (y (x +)))))
+;       (x 7))
+;  (6 (5 curried+))) 
 
-(slet (((curried+ x) (lambda (y) (y (x +)))) (x 7))
-  (6 (5 curried+))) 
+; Llet Dynamic "curried+" (Lfn "x1" (Llet Dynamic "x" (Lvar "x1") (Lfn "y" (Lpipe (Lvar "y") (Lpipe (Lvar "x") (Lvar "+")))))) (Llet Dynamic "x" (Lnum 7) (Lpipe (Lnum 6) (Lpipe (Lnum 5) (Lvar "curried+"))))
 
-;Llet Lexical "curried+" 
-;            (Lfn "x" (Lfn "y" (Lpipe (Lvar "y") (Lpipe (Lvar "x") (Lvar "+"))))) 
-;            (Llet Lexical "x" 
-;                          (Lnum 7) 
-;                          (Lpipe (Lnum 6) (Lpipe (Lnum 5) (Lvar "curried+"))))
+

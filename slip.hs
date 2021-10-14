@@ -405,12 +405,15 @@ eval _senv _denv (Lcase cons patterns) =
    in eval senv' _denv lexp
 eval _senv _denv (Llet Lexical var value lexp) =
   let body = getBody lexp
-      varDefinitions = (var, value) : getVarDef value
+      varDefinitions = (var, value) : getVarDef lexp
       body' = replaceVarInBodyLex body varDefinitions
    in eval _senv [] body'
 eval _senv _denv (Llet Dynamic var value lexp) =
-  let lexp' = genDynamicLexp var lexp value
-   in eval _senv _denv lexp'
+  let body = getBody lexp
+      varDefinitions = (var, value) : getVarDef lexp
+      body' = replaceVarInBodyDyn body varDefinitions
+      denv = genDynEnv _senv _denv varDefinitions
+   in eval _senv denv body'
 eval _senv _denv pipe@(Lpipe left right) =
   if isLambda pipe
     then
@@ -439,16 +442,36 @@ replaceVarInBodyLex (Lpipe left right) vars =
   Lpipe (replaceVarInBodyLex left vars) (replaceVarInBodyLex right vars)
 replaceVarInBodyLex e _ = e
 
+replaceVarInBodyDyn :: Lexp -> [(Var, Lexp)] -> Lexp
+replaceVarInBodyDyn (Llet Dynamic var _ lexp) env =
+  if varInEnv var env
+    then
+      let body = getBody lexp
+       in body
+    else error "Not implemented"
+replaceVarInBodyDyn (Lfn var lexp) vars =
+  Lfn var (replaceVarInBodyDyn lexp vars)
+replaceVarInBodyDyn e@(Lvar v) vars =
+  if varInEnv v vars then replaceVarInBodyDyn (replaceVar v vars) vars else e
+replaceVarInBodyDyn (Lpipe left right) vars =
+  Lpipe (replaceVarInBodyDyn left vars) (replaceVarInBodyDyn right vars)
+replaceVarInBodyDyn e _ = e
+
+genDynEnv :: Env -> Env -> [(Var, Lexp)] -> Env
+genDynEnv _ _denv [] = _denv
+genDynEnv _senv _denv ((_, Lfn _ _) : xs) = genDynEnv _senv _denv xs
+genDynEnv _senv _denv ((var, value) : xs) =
+  (var, eval _senv _denv value) : genDynEnv _senv _denv xs
+
+varInEnv :: Var -> [(Var, Lexp)] -> Bool
+varInEnv _ [] = False
+varInEnv v ((var, _) : _) | v == var = True
+varInEnv v (_ : xs) = varInEnv v xs
+
 replaceVar :: Var -> [(Var, Lexp)] -> Lexp
-replaceVar _ [] = error "var not found."
+replaceVar v [] = error ("var not found. " ++ v)
 replaceVar v ((var, value) : _) | v == var = value
 replaceVar v (_ : xs) = replaceVar v xs
-
-genDynamicLexp :: Var -> Lexp -> Lexp -> Lexp
-genDynamicLexp var (Lvar v) replace | var == v = replace
-genDynamicLexp var (Lpipe left right) replace =
-  Lpipe left (genDynamicLexp var right replace)
-genDynamicLexp _ _ _ = error "not implemented"
 
 evalLambda :: Lexp -> ([Var], [Value], Lexp)
 evalLambda pipe@(Lpipe _ _) =
@@ -468,7 +491,7 @@ getLambdaVar :: Lexp -> [Var]
 getLambdaVar (Lpipe _ _) = []
 getLambdaVar (Lvar var) = [var]
 getLambdaVar (Lfn var lexp) = var : getLambdaVar lexp
-getLambdaVar _ = error "not implemented"
+getLambdaVar e = error ("not implemented " ++ show e)
 
 getLambdaVal :: Lexp -> [Value]
 getLambdaVal (Lfn _ _) = []
