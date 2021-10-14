@@ -236,24 +236,49 @@ s2l (Scons (Ssym "if") (Scons condition (Scons ifTrue (Scons ifFalse Snil)))) =
   let trueLexp = (Just ("true", []), s2l ifTrue)
       falseLexp = (Just ("false", []), s2l ifFalse)
    in Lcase (s2l condition) [trueLexp, falseLexp]
-s2l (Scons (Ssym "slet") (Scons (Scons (Scons (Ssym var) value) _) body)) =
-  Llet Lexical var (s2l value) (s2l body)
-s2l (Scons (Ssym "dlet") (Scons (Scons varDefinition _) toEval)) =
-  let body = s2l toEval
-      (var, undVars, value) = getVarContent varDefinition
-      value' = generateValue undVars value
-   in Llet Dynamic var value' body
--- s2l (Scons left right) = Lpipe (s2l left) (s2l right)
+s2l (Scons (Ssym "slet") (Scons variables body)) =
+  let varsContent = getVarsContent variables
+      body' = s2l body
+   in mkLletLex varsContent body'
+s2l (Scons (Ssym "dlet") (Scons variables body)) =
+  let varsContent = getVarsContent variables
+      body' = s2l body
+   in mkLletDyn varsContent body'
+s2l (Scons left right) = Lpipe (s2l left) (s2l right)
 -- ¡¡ COMPLETER !!
 s2l se = error ("Malformed Sexp: " ++ (show se))
 
 -- s2l se = error ("Malformed Sexp: " ++ (showSexp se))
 
-getVarContent :: Sexp -> (Var, [Var], Lexp, Env)
-getVarContent (Scons (Scons (Ssym var) undVars) value) =
-  (var, getUndVars undVars, s2l value)
-getVarContent (Scons _ right) = getVarContent right
-getVarContent _ = error "not implemented"
+-- (Scons (Scons (Ssym var) value) _)
+
+mkLletLex :: [(Var, [Var], Lexp)] -> Lexp -> Lexp
+mkLletLex [] body = body
+mkLletLex ((varName, undVars, value) : xs) body =
+  let value' = generateValue undVars value
+   in Llet Lexical varName value' (mkLletLex xs body)
+
+mkLletDyn :: [(Var, [Var], Lexp)] -> Lexp -> Lexp
+mkLletDyn [] body = body
+mkLletDyn ((varName, undVars, value) : xs) body =
+  let value' = generateValue undVars value
+   in Llet Dynamic varName value' (mkLletDyn xs body)
+
+getVarsContent :: Sexp -> [(Var, [Var], Lexp)]
+getVarsContent Snil = []
+getVarsContent (Scons left right) = getVarContent left : getVarsContent right
+getVarsContent e = error ("not implemented " ++ show e)
+
+getVarContent :: Sexp -> (Var, [Var], Lexp)
+getVarContent (Scons left right) =
+  let (varName, undVars) = getVarCallInfo left
+   in (varName, undVars, s2l right)
+getVarContent e = error ("not implemented " ++ show e)
+
+getVarCallInfo :: Sexp -> (Var, [Var])
+getVarCallInfo (Ssym v) = (v, [])
+getVarCallInfo (Scons (Ssym v) right) = (v, getVar right)
+getVarCallInfo e = error ("not implemented " ++ show e)
 
 generateValue :: [Var] -> Lexp -> Lexp
 generateValue [] lexp = lexp
@@ -368,31 +393,56 @@ eval _senv _denv (Lnum n) = Vnum n
 -- Made getting var simpler for now.
 -- We will need to extends when we will deal with dynamic variables
 eval [] [] e@(Lvar _) = error ("Var not found in senv and denv " ++ show e)
-eval ((var, val) : _) _ (Lvar s) | var == s = val
-eval (_ : _senvs) _denv s@(Lvar _) = eval _senvs _denv s
+eval ((var, val) : _) [] (Lvar s) | var == s = val
+eval (_ : _senvs) [] s@(Lvar _) = eval _senvs [] s
+eval _senv ((var, val) : _) (Lvar s) | var == s = val
+eval _senv (_ : _denvs) s@(Lvar _) = eval _senv _denvs s
 eval _senv _denv (Lcons tag content) = Vcons tag (evalLconsList _senv _denv content)
 eval _senv _denv (Lcase cons patterns) =
   let Vcons tag content = eval _senv _denv cons
       (vars, lexp) = getMatchingPattern tag patterns
       senv' = generateEnv vars content ++ _senv
    in eval senv' _denv lexp
--- eval _senv _denv (Llet Lexical var value lexp) =
---   eval ((var, eval _senv _denv value) : _senv) _denv lexp
--- eval _senv _denv (Llet Dynamic var value lexp) =
---   let lexp' = genDynamicLexp var lexp value
---    in eval _senv _denv lexp'
--- eval _senv _denv pipe@(Lpipe left right) =
---   if isLambda pipe
---     then
---       let (vars, values, body) = evalLambda pipe
---           vars' = reverse vars
---        in eval (generateEnv vars' values ++ _senv) _denv body
---     else
---       let Vfn fn = eval _senv _denv right
---           arg = eval _senv _denv left
---        in fn _denv arg
+eval _senv _denv (Llet Lexical var value lexp) =
+  let body = getBody lexp
+      varDefinitions = (var, value) : getVarDef value
+      body' = replaceVarInBodyLex body varDefinitions
+   in eval _senv [] body'
+eval _senv _denv (Llet Dynamic var value lexp) =
+  let lexp' = genDynamicLexp var lexp value
+   in eval _senv _denv lexp'
+eval _senv _denv pipe@(Lpipe left right) =
+  if isLambda pipe
+    then
+      let (vars, values, body) = evalLambda pipe
+          vars' = reverse vars
+       in eval (generateEnv vars' values ++ _senv) _denv body
+    else
+      let Vfn fn = eval _senv _denv right
+          arg = eval _senv _denv left
+       in fn [] arg
 -- ¡¡ COMPLETER !!
 eval _ _ e = error ("Can't eval: " ++ show e)
+
+getVarDef :: Lexp -> [(Var, Lexp)]
+getVarDef (Llet _ var value lexp) = (var, value) : getVarDef lexp
+getVarDef _ = []
+
+getBody :: Lexp -> Lexp
+getBody (Llet _ _ _ lexp) = getBody lexp
+getBody lexp = lexp
+
+replaceVarInBodyLex :: Lexp -> [(Var, Lexp)] -> Lexp
+replaceVarInBodyLex e@(Lfn _ _) _ = e
+replaceVarInBodyLex (Lvar v) vars = replaceVar v vars
+replaceVarInBodyLex (Lpipe left right) vars =
+  Lpipe (replaceVarInBodyLex left vars) (replaceVarInBodyLex right vars)
+replaceVarInBodyLex e _ = e
+
+replaceVar :: Var -> [(Var, Lexp)] -> Lexp
+replaceVar _ [] = error "var not found."
+replaceVar v ((var, value) : _) | v == var = value
+replaceVar v (_ : xs) = replaceVar v xs
 
 genDynamicLexp :: Var -> Lexp -> Lexp -> Lexp
 genDynamicLexp var (Lvar v) replace | var == v = replace

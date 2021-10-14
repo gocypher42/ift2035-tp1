@@ -1,25 +1,13 @@
-(slet (((curried+ x) (lambda (y) (y (x +))))
-       (x 7))
+;(slet ((x 1)) x) 
+;(slet ((x 1) (y 2) (z 3)) (z ((y (x +)) *)))
+
+;(dlet (((f x y) (y ((1 (x +)) *)))) (6 (5 f))) ; ↝ 36
+
+(slet (((curried+ x) (lambda (y) (y (x +)))) (x 7))
   (6 (5 curried+))) 
 
-;Scons (Ssym "slet") (Scons (Scons (Scons (Scons (Ssym "curried+") 
-                                                 (Scons (Ssym "x") Snil)) 
-                                          (Scons (Scons (Ssym "lambda") 
-                                                        (Scons (Scons (Ssym "y") Snil) 
-                                                 (Scons (Scons (Ssym "y") 
-                                                               (Scons (Scons (Ssym "x") 
-                                                                             (Scons (Ssym "+") Snil)) 
-                                                                       Snil)) 
-                                                         Snil))) 
-                                                  Snil)) 
-                                   (Scons (Scons (Ssym "x") 
-                                                 (Scons (Snum 7) Snil)) 
-                                           Snil)) 
-
-                            (Scons (Scons (Snum 6) 
-                                          (Scons (Scons (Snum 5) 
-                                                        (Scons (Ssym "curried+") Snil)) 
-                                                  Snil)) 
-                                    Snil))
-
-;Lpipe (Lvar "slet") (Lpipe (Lpipe (Lpipe (Lpipe (Lvar "curried+") (Lvar "x")) (Lfn "y" (Lpipe (Lvar "y") (Lpipe (Lvar "x") (Lvar "+"))))) (Lpipe (Lvar "x") (Lnum 7))) (Lpipe (Lnum 6) (Lpipe (Lnum 5) (Lvar "curried+"))))
+;Llet Lexical "curried+" 
+;            (Lfn "x" (Lfn "y" (Lpipe (Lvar "y") (Lpipe (Lvar "x") (Lvar "+"))))) 
+;            (Llet Lexical "x" 
+;                          (Lnum 7) 
+;                          (Lpipe (Lnum 6) (Lpipe (Lnum 5) (Lvar "curried+"))))
