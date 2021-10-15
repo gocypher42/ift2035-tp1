@@ -1,4 +1,5 @@
-(dlet (((f x y) (y ((1 (x +)) *)))) (6 (5 f))) 
+(slet ((x 1) (y 2) (z 3)) x)
+;(dlet (((f x y) (y ((1 (x +)) *)))) (6 (x f))) 
 ;Llet Dynamic "f" 
 ;     (Lfn "x" 
 ;          (Lfn "y" (Lpipe (Lvar "y") 
@@ -7,10 +8,21 @@
 ;                                               (Lvar "+"))) (Lvar "*"))))) 
 ;     (Lpipe (Lnum 6) (Lpipe (Lnum 5) (Lvar "f")))
 
-;(dlet (((curried+ x1) (dlet ((x x1)) (lambda (y) (y (x +)))))
-;       (x 7))
-;  (6 (5 curried+))) 
+(dlet (((curried+ x1) (dlet ((x x1)) (lambda (y) (y (x +)))))
+       (x 7) (y 2) (x 4))
+  (6 (5 curried+))) 
 
-; Llet Dynamic "curried+" (Lfn "x1" (Llet Dynamic "x" (Lvar "x1") (Lfn "y" (Lpipe (Lvar "y") (Lpipe (Lvar "x") (Lvar "+")))))) (Llet Dynamic "x" (Lnum 7) (Lpipe (Lnum 6) (Lpipe (Lnum 5) (Lvar "curried+"))))
+; Llet Dynamic "curried+" (Lfn "x1" (Llet Dynamic "x" (Lvar "x1") (Lfn "y" (Lpipe (Lvar "y") (Lpipe (Lvar "x") (Lvar "+")))))) 
+;                (Llet Dynamic "x" (Lnum 7) 
+;                (Lpipe (Lnum 6) (Lpipe (Lnum 5) (Lfn "x1" (Llet Dynamic "x" (Lvar "x1") (Lfn "y" (Lpipe (Lvar "y") (Lpipe (Lvar "x") (Lvar "+")))))))))
 
+;(Lpipe (Lnum 6) (Lpipe (Lnum 5) (Lvar "curried+")))
 
+;Scons (Ssym "slet") (Scons (Scons (Scons (Ssym "x") 
+;                                         (Scons (Snum 1) Snil)) 
+;                                  (Scons (Scons (Ssym"y") 
+;                                                (Scons (Snum 2) Snil)) 
+;                                         (Scons (Scons (Ssym "z") 
+;                                                       (Scons (Snum 3) Snil)) 
+;                                                 Snil))) 
+;                            (Scons (Ssym "f") Snil))

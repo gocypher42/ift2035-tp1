@@ -390,8 +390,6 @@ env0 =
 
 eval :: Env -> Env -> Lexp -> Value
 eval _senv _denv (Lnum n) = Vnum n
--- Made getting var simpler for now.
--- We will need to extends when we will deal with dynamic variables
 eval [] [] e@(Lvar _) = error ("Var not found in senv and denv " ++ show e)
 eval ((var, val) : _) [] (Lvar s) | var == s = val
 eval (_ : _senvs) [] s@(Lvar _) = eval _senvs [] s
@@ -412,7 +410,7 @@ eval _senv _denv (Llet Dynamic var value lexp) =
   let body = getBody lexp
       varDefinitions = (var, value) : getVarDef lexp
       body' = replaceVarInBodyDyn body varDefinitions
-      denv = genDynEnv _senv _denv varDefinitions
+      denv = reverse (genDynEnv _senv _denv varDefinitions)
    in eval _senv denv body'
 eval _senv _denv pipe@(Lpipe left right) =
   if isLambda pipe
