@@ -227,8 +227,10 @@ s2l (Snum n) = Lnum n
 s2l (Ssym s) = Lvar s
 s2l (Scons left Snil) = s2l left
 s2l (Scons (Ssym "lambda") (Scons var function)) =
-  let Lvar v = s2l var
-   in Lfn v (s2l function)
+  case s2l var of
+    Lvar v -> Lfn v (s2l function)
+    Lpipe _ _ -> mkLambdaFromPipe var function
+    e -> error ("Malformed Sexp: " ++ (show e))
 s2l (Scons (Ssym "cons") right) = mkLcons right
 s2l (Scons (Ssym "case") (Scons left right)) =
   Lcase (s2l left) (mkBranches right)
@@ -250,7 +252,11 @@ s2l se = error ("Malformed Sexp: " ++ (show se))
 
 -- s2l se = error ("Malformed Sexp: " ++ (showSexp se))
 
--- (Scons (Scons (Ssym var) value) _)
+mkLambdaFromPipe :: Sexp -> Sexp -> Lexp
+mkLambdaFromPipe Snil function = s2l function 
+mkLambdaFromPipe (Scons (Ssym v) right) function = 
+  Lfn v (mkLambdaFromPipe right function)  
+mkLambdaFromPipe args _ = error ("Malformed Sexp: " ++ (show args))
 
 mkLletLex :: [(Var, [Var], Lexp)] -> Lexp -> Lexp
 mkLletLex [] body = body
@@ -395,6 +401,8 @@ eval ((var, val) : _) [] (Lvar s) | var == s = val
 eval (_ : _senvs) [] s@(Lvar _) = eval _senvs [] s
 eval _senv ((var, val) : _) (Lvar s) | var == s = val
 eval _senv (_ : _denvs) s@(Lvar _) = eval _senv _denvs s
+eval _senv _denv (Lfn var func) = 
+  Vfn (\env value -> eval ((var, value): _senv) env func)
 eval _senv _denv (Lcons tag content) = Vcons tag (evalLconsList _senv _denv content)
 eval _senv _denv (Lcase cons patterns) =
   let Vcons tag content = eval _senv _denv cons
@@ -402,110 +410,17 @@ eval _senv _denv (Lcase cons patterns) =
       senv' = generateEnv vars content ++ _senv
    in eval senv' _denv lexp
 eval _senv _denv (Llet Lexical var value lexp) =
-  let body = getBody lexp
-      varDefinitions = (var, value) : getVarDef lexp
-      body' = replaceVarInBodyLex body varDefinitions
-   in eval _senv [] body'
+  eval ((var, eval _senv _denv value):_senv) _denv lexp
 eval _senv _denv (Llet Dynamic var value lexp) =
-  let body = getBody lexp
-      varDefinitions = (var, value) : getVarDef lexp
-      body' = replaceVarInBodyDyn body varDefinitions
-      denv = reverse (genDynEnv _senv _denv varDefinitions)
-   in eval _senv denv body'
-eval _senv _denv pipe@(Lpipe left right) =
-  if isLambda pipe
-    then
-      let (vars, values, body) = evalLambda pipe
-          vars' = reverse vars
-       in eval (generateEnv vars' values ++ _senv) _denv body
-    else
-      let Vfn fn = eval _senv _denv right
-          arg = eval _senv _denv left
-       in fn [] arg
+  eval _senv ((var, eval _senv _denv value):_denv) lexp
+eval _senv _denv (Lpipe left right) =
+  case eval _senv _denv right of 
+  Vfn fn -> 
+    let arg = eval _senv _denv left
+      in fn _denv arg
+  e -> error ("Can't eval: " ++ show e)
 -- ¡¡ COMPLETER !!
-eval _ _ e = error ("Can't eval: " ++ show e)
-
-getVarDef :: Lexp -> [(Var, Lexp)]
-getVarDef (Llet _ var value lexp) = (var, value) : getVarDef lexp
-getVarDef _ = []
-
-getBody :: Lexp -> Lexp
-getBody (Llet _ _ _ lexp) = getBody lexp
-getBody lexp = lexp
-
-replaceVarInBodyLex :: Lexp -> [(Var, Lexp)] -> Lexp
-replaceVarInBodyLex e@(Lfn _ _) _ = e
-replaceVarInBodyLex (Lvar v) vars = replaceVar v vars
-replaceVarInBodyLex (Lpipe left right) vars =
-  Lpipe (replaceVarInBodyLex left vars) (replaceVarInBodyLex right vars)
-replaceVarInBodyLex e _ = e
-
-replaceVarInBodyDyn :: Lexp -> [(Var, Lexp)] -> Lexp
-replaceVarInBodyDyn (Llet Dynamic var _ lexp) env =
-  if varInEnv var env
-    then
-      let body = getBody lexp
-       in body
-    else error "Not implemented"
-replaceVarInBodyDyn (Lfn var lexp) vars =
-  Lfn var (replaceVarInBodyDyn lexp vars)
-replaceVarInBodyDyn e@(Lvar v) vars =
-  if varInEnv v vars then replaceVarInBodyDyn (replaceVar v vars) vars else e
-replaceVarInBodyDyn (Lpipe left right) vars =
-  Lpipe (replaceVarInBodyDyn left vars) (replaceVarInBodyDyn right vars)
-replaceVarInBodyDyn e _ = e
-
-genDynEnv :: Env -> Env -> [(Var, Lexp)] -> Env
-genDynEnv _ _denv [] = _denv
-genDynEnv _senv _denv ((_, Lfn _ _) : xs) = genDynEnv _senv _denv xs
-genDynEnv _senv _denv ((var, value) : xs) =
-  (var, eval _senv _denv value) : genDynEnv _senv _denv xs
-
-varInEnv :: Var -> [(Var, Lexp)] -> Bool
-varInEnv _ [] = False
-varInEnv v ((var, _) : _) | v == var = True
-varInEnv v (_ : xs) = varInEnv v xs
-
-replaceVar :: Var -> [(Var, Lexp)] -> Lexp
-replaceVar v [] = error ("var not found. " ++ v)
-replaceVar v ((var, value) : _) | v == var = value
-replaceVar v (_ : xs) = replaceVar v xs
-
-evalLambda :: Lexp -> ([Var], [Value], Lexp)
-evalLambda pipe@(Lpipe _ _) =
-  let lambda = findStartLambda pipe
-      vars = getLambdaVar lambda
-      values = getLambdaVal pipe
-      body = getLambdaBody lambda
-   in (vars, values, body)
-evalLambda _ = error "not implemented"
-
-findStartLambda :: Lexp -> Lexp
-findStartLambda start@(Lfn _ _) = start
-findStartLambda (Lpipe _ right) = findStartLambda right
-findStartLambda _ = error "not implemented"
-
-getLambdaVar :: Lexp -> [Var]
-getLambdaVar (Lpipe _ _) = []
-getLambdaVar (Lvar var) = [var]
-getLambdaVar (Lfn var lexp) = var : getLambdaVar lexp
-getLambdaVar e = error ("not implemented " ++ show e)
-
-getLambdaVal :: Lexp -> [Value]
-getLambdaVal (Lfn _ _) = []
-getLambdaVal (Lpipe left right) =
-  eval [] [] left : getLambdaVal right
-getLambdaVal _ = error "not implemented"
-
-getLambdaBody :: Lexp -> Lexp
-getLambdaBody (Lfn _ lexp) = getLambdaBody lexp
-getLambdaBody body = body
-
-isLambda :: Lexp -> Bool
-isLambda (Lfn _ _) = True
-isLambda (Lvar _) = False
-isLambda (Lpipe _ left) = isLambda left
-isLambda e = error ("not implemented " ++ show e)
+-- eval _ _ e = error ("Can't eval: " ++ show e)
 
 evalLconsList :: Env -> Env -> [Lexp] -> [Value]
 evalLconsList _ _ [] = []
