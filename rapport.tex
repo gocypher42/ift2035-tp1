@@ -1,7 +1,7 @@
 \documentclass[12pt, letterpaper]{article}
 \usepackage[utf8]{inputenc}
 
-\setlength{\parskip}{1em}
+% \setlength{\parskip}{1em}
 
 \title{IFT 2035 \\ Travail pratique 1 - Interpréteur Slip \\ Rapport }
 \author{ Marie-Anne Prud'Homme-Maurice (Ajout Matricule) 
@@ -13,39 +13,48 @@
 
 \section*{Une sorte de Lisp}
 
-Dans le cadre du cours IFT 2035. Il nous a été demandé de concevoir une sorte 
-d'interpréteur Lisp en utilisant le language fonctionnel Haskell. Le travail 
-a pour buts d'implanter une fonction qui finalise l'analyse syntaxique de 
-l'expression fournie ainsi que de la fonction eval qui permet d'évaluer 
+Dans le cadre du cours IFT 2035. Il nous a été demandé de concevoir une sorte
+d'interpréteur Lisp en utilisant le language fonctionnel Haskell. Le travail
+a pour buts d'implanter une fonction qui finalise l'analyse syntaxique de
+l'expression fournie ainsi que de la fonction eval qui permet d'évaluer
 celle-ci.
-
-Ce rapport décris notre pocessus d'analyse, les problèmes rencontrés, 
-les décisions prisent et notre exérience durant la création de 
+\\
+\\
+Ce rapport décri notre pocessus d'analyse, les problèmes rencontrés,
+les décisions prisent et notre exérience durant la création de
 cette interpréteur.
 
 \section*{Analyse et compréhension de l'énnoncé}
 
-Comme dans tout travail la première étape concisistait à comprendre la tâche à 
-réaliser.  
+Comme dans tout travail la première étape consistait à comprendre la tâche à
+réaliser.  Sans le cacher, Haskell et Lisp sont des nouveaux language pour nous.
+Juste ce fait rend la tâche du projet plus complexe.
+\\
+\\
+Suite à plusieurs lectures, nous avons commencé à reconnaitre des similitude entre
+la strucure de Slip et Haskell.
+
 
 \section*{Problèmes rencontrés}
 
+\subsection*{Élimination dynamique du sucre syntaxique}
+
+\subsection*{Évaluation des Lfn}
+
 \section*{Solutions rejetées et choisies}
 
-\section*{Surprise}
+\subsection*{Implentation initial de eval slet et dlet}
 
-Chose à parler:
+Lorsque nous étions rendu à l'évaluation des slet et des dlet dans la fonction
+eval, la première solution trouvée était de décortiquer l'information du let
+en plusieur parties. Nous avions donc implenté des fonctions auxilliares
+permettant de trouver toutes les variables définient dans le let ainsi que
+l'expression final à évaluer.
 
-Implantation de eval des Vfn
+\subsection*{Implentation initial de eval pour Lfn}
 
-Solution inital des let
-
-Compréhension de la structure des Scons
+\section*{Surprises}
 
 \section*{Conclusion}
 
-
-
-
 \end{document}
- 

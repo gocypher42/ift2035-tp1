@@ -23,3 +23,7 @@ cabal.project.local~
 .ghc.environment.*
 # user defiend
 mkrapport
+*.fdb*
+*.fls
+*.log
+*synctex*
