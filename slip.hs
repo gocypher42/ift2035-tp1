@@ -241,11 +241,11 @@ s2l (Scons (Ssym "if") (Scons condition (Scons ifTrue (Scons ifFalse Snil)))) =
 s2l (Scons (Ssym "slet") (Scons variables body)) =
   let varsContent = getVarsContent variables
       body' = s2l body
-   in mkLletLex varsContent body'
+   in mkLlet Lexical varsContent body'
 s2l (Scons (Ssym "dlet") (Scons variables body)) =
   let varsContent = getVarsContent variables
       body' = s2l body
-   in mkLletDyn varsContent body'
+   in mkLlet Dynamic varsContent body'
 s2l (Scons left right) = Lpipe (s2l left) (s2l right)
 -- ¡¡ COMPLETER !!
 s2l se = error ("Malformed Sexp: " ++ (show se))
@@ -253,22 +253,16 @@ s2l se = error ("Malformed Sexp: " ++ (show se))
 -- s2l se = error ("Malformed Sexp: " ++ (showSexp se))
 
 mkLambdaFromPipe :: Sexp -> Sexp -> Lexp
-mkLambdaFromPipe Snil function = s2l function 
-mkLambdaFromPipe (Scons (Ssym v) right) function = 
-  Lfn v (mkLambdaFromPipe right function)  
+mkLambdaFromPipe Snil function = s2l function
+mkLambdaFromPipe (Scons (Ssym v) right) function =
+  Lfn v (mkLambdaFromPipe right function)
 mkLambdaFromPipe args _ = error ("Malformed Sexp: " ++ (show args))
 
-mkLletLex :: [(Var, [Var], Lexp)] -> Lexp -> Lexp
-mkLletLex [] body = body
-mkLletLex ((varName, undVars, value) : xs) body =
+mkLlet :: BindingType -> [(Var, [Var], Lexp)] -> Lexp -> Lexp
+mkLlet _ [] body = body
+mkLlet binding ((varName, undVars, value) : xs) body =
   let value' = generateValue undVars value
-   in Llet Lexical varName value' (mkLletLex xs body)
-
-mkLletDyn :: [(Var, [Var], Lexp)] -> Lexp -> Lexp
-mkLletDyn [] body = body
-mkLletDyn ((varName, undVars, value) : xs) body =
-  let value' = generateValue undVars value
-   in Llet Dynamic varName value' (mkLletDyn xs body)
+   in Llet binding varName value' (mkLlet binding xs body)
 
 getVarsContent :: Sexp -> [(Var, [Var], Lexp)]
 getVarsContent Snil = []
@@ -401,8 +395,8 @@ eval ((var, val) : _) [] (Lvar s) | var == s = val
 eval (_ : _senvs) [] s@(Lvar _) = eval _senvs [] s
 eval _senv ((var, val) : _) (Lvar s) | var == s = val
 eval _senv (_ : _denvs) s@(Lvar _) = eval _senv _denvs s
-eval _senv _denv (Lfn var func) = 
-  Vfn (\env value -> eval ((var, value): _senv) env func)
+eval _senv _denv (Lfn var func) =
+  Vfn (\env value -> eval ((var, value) : _senv) env func)
 eval _senv _denv (Lcons tag content) = Vcons tag (evalLconsList _senv _denv content)
 eval _senv _denv (Lcase cons patterns) =
   let Vcons tag content = eval _senv _denv cons
@@ -410,15 +404,16 @@ eval _senv _denv (Lcase cons patterns) =
       senv' = generateEnv vars content ++ _senv
    in eval senv' _denv lexp
 eval _senv _denv (Llet Lexical var value lexp) =
-  eval ((var, eval _senv _denv value):_senv) _denv lexp
+  eval ((var, eval _senv _denv value) : _senv) _denv lexp
 eval _senv _denv (Llet Dynamic var value lexp) =
-  eval _senv ((var, eval _senv _denv value):_denv) lexp
+  eval _senv ((var, eval _senv _denv value) : _denv) lexp
 eval _senv _denv (Lpipe left right) =
-  case eval _senv _denv right of 
-  Vfn fn -> 
-    let arg = eval _senv _denv left
-      in fn _denv arg
-  e -> error ("Can't eval: " ++ show e)
+  case eval _senv _denv right of
+    Vfn fn ->
+      let arg = eval _senv _denv left
+       in fn _denv arg
+    e -> error ("Can't eval: " ++ show e)
+
 -- ¡¡ COMPLETER !!
 -- eval _ _ e = error ("Can't eval: " ++ show e)
 
