@@ -234,10 +234,17 @@ s2l (Scons (Ssym "lambda") (Scons var function)) =
 s2l (Scons (Ssym "cons") right) = mkLcons right
 s2l (Scons (Ssym "case") (Scons left right)) =
   Lcase (s2l left) (mkBranches right)
-s2l (Scons (Ssym "if") (Scons condition (Scons ifTrue (Scons ifFalse Snil)))) =
-  let trueLexp = (Just ("true", []), s2l ifTrue)
-      falseLexp = (Just ("false", []), s2l ifFalse)
-   in Lcase (s2l condition) [trueLexp, falseLexp]
+s2l
+  ( Scons
+      (Ssym "if")
+      ( Scons
+          condition
+          (Scons ifTrue (Scons ifFalse Snil))
+        )
+    ) =
+    let trueLexp = (Just ("true", []), s2l ifTrue)
+        falseLexp = (Just ("false", []), s2l ifFalse)
+     in Lcase (s2l condition) [trueLexp, falseLexp]
 s2l (Scons (Ssym "slet") (Scons variables body)) =
   let varsContent = getVarsContent variables
       body' = s2l body
@@ -390,14 +397,15 @@ env0 =
 
 eval :: Env -> Env -> Lexp -> Value
 eval _senv _denv (Lnum n) = Vnum n
-eval [] [] e@(Lvar _) = error ("Var not found in senv and denv " ++ show e)
+eval [] [] (Lvar _) = error "Var not found in senv and denv "
 eval ((var, val) : _) [] (Lvar s) | var == s = val
 eval (_ : _senvs) [] s@(Lvar _) = eval _senvs [] s
 eval _senv ((var, val) : _) (Lvar s) | var == s = val
 eval _senv (_ : _denvs) s@(Lvar _) = eval _senv _denvs s
 eval _senv _denv (Lfn var func) =
   Vfn (\env value -> eval ((var, value) : _senv) env func)
-eval _senv _denv (Lcons tag content) = Vcons tag (evalLconsList _senv _denv content)
+eval _senv _denv (Lcons tag content) =
+  Vcons tag (evalLconsList _senv _denv content)
 eval _senv _denv (Lcase cons patterns) =
   let Vcons tag content = eval _senv _denv cons
       (vars, lexp) = getMatchingPattern tag patterns
@@ -414,18 +422,18 @@ eval _senv _denv (Lpipe left right) =
        in fn _denv arg
     e -> error ("Can't eval: " ++ show e)
 
--- ¡¡ COMPLETER !!
--- eval _ _ e = error ("Can't eval: " ++ show e)
-
 evalLconsList :: Env -> Env -> [Lexp] -> [Value]
 evalLconsList _ _ [] = []
-evalLconsList _senv _denv (x : xs) = eval _senv _denv x : evalLconsList _senv _denv xs
+evalLconsList _senv _denv (x : xs) =
+  eval _senv _denv x : evalLconsList _senv _denv xs
 
 getMatchingPattern :: Var -> [(Pat, Lexp)] -> ([Var], Lexp)
 getMatchingPattern _ [] = error "Empty pattern"
 getMatchingPattern _ ((Nothing, lexp) : _xs) = ([], lexp)
 getMatchingPattern tag ((Just (tag', vars), lexp) : _xs) =
-  if tag == tag' then (vars, lexp) else getMatchingPattern tag _xs
+  if tag == tag'
+    then (vars, lexp)
+    else getMatchingPattern tag _xs
 
 generateEnv :: [Var] -> [Value] -> [(Var, Value)]
 generateEnv [] _ = []
