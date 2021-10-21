@@ -1,0 +1,18 @@
+; Test 1:
+(dlet (((curried+ x1) (dlet ((x x1)) (lambda (y) (y (x +)))))
+       (x 7) (x 9))
+  (6 (5 curried+)))   ; 15
+
+; Test 2:
+(dlet (((curried+ x1) (dlet ((x x1)) (lambda (y) (y (x +)))))
+       (x 7) (y 1) )
+  (6 (5 curried+)))   ; 8
+
+; Test 3:
+(if (4 (3 >)) (slet ((x 4)) x) (slet ((x 5)) x)) ; 5
+
+; Test 4: 
+true ; true 
+
+; Test 5:
+( if (true) (2 (4 /)) (1 (9 -))) ; 2
